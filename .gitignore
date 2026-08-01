@@ -18,6 +18,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# build artifacts (.aab / .apk are large and rebuildable)
+build/
+
 # Metro
 .metro-health-check*
 
