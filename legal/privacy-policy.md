@@ -159,4 +159,4 @@ version will always be available at this URL.
 
 **Email:** goto.reiji@gmail.com
 
-**Developer:** Reiji Goto
+**Developer:** 後藤史兆
