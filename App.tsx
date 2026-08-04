@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -9,8 +9,12 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as MediaLibrary from 'expo-media-library/legacy';
+// presentPermissionsPicker only exists on the new API surface.
+import { presentPermissionsPicker } from 'expo-media-library';
 
+import { readSummary, writeSummary } from './lib/cache';
 import {
+  libraryFingerprint,
   screenHeadline,
   summarizeLibrary,
   type LibrarySummary,
@@ -21,42 +25,100 @@ const GROUND = '#E6E4DD';
 const INK = '#1B1D1A';
 const MARK = '#4A5D57';
 const SIGNAL = '#1F4B99';
+const VEIL = '#C9C6BC';
 
 type Stage =
+  | { name: 'boot' }
   | { name: 'intro' }
   | { name: 'scanning'; count: number }
+  | { name: 'limited' }
   | { name: 'denied' }
   | { name: 'result'; summary: LibrarySummary };
 
 const group = (n: number) => n.toLocaleString('en-US');
 
 export default function App() {
-  const [stage, setStage] = useState<Stage>({ name: 'intro' });
+  const [stage, setStage] = useState<Stage>({ name: 'boot' });
   const { width } = useWindowDimensions();
 
-  const begin = useCallback(async () => {
-    const permission = await MediaLibrary.requestPermissionsAsync();
-    if (permission.status !== 'granted') {
-      setStage({ name: 'denied' });
-      return;
-    }
-
+  /** Counts the library and caches the result. */
+  const scan = useCallback(async () => {
     setStage({ name: 'scanning', count: 0 });
-    try {
-      const summary = await summarizeLibrary((count) =>
-        setStage({ name: 'scanning', count })
-      );
-      setStage({ name: 'result', summary });
-    } catch {
-      setStage({ name: 'denied' });
-    }
+    const fingerprint = await libraryFingerprint();
+    const summary = await summarizeLibrary((count) =>
+      setStage({ name: 'scanning', count })
+    );
+    await writeSummary(fingerprint, summary);
+    setStage({ name: 'result', summary });
   }, []);
+
+  /** Turns a permission response into the next stage. */
+  const proceed = useCallback(
+    async (permission: MediaLibrary.PermissionResponse) => {
+      if (permission.status !== 'granted') {
+        setStage({ name: 'denied' });
+        return;
+      }
+      if (permission.accessPrivileges === 'limited') {
+        setStage({ name: 'limited' });
+        return;
+      }
+      try {
+        await scan();
+      } catch {
+        setStage({ name: 'denied' });
+      }
+    },
+    [scan]
+  );
+
+  const begin = useCallback(async () => {
+    await proceed(await MediaLibrary.requestPermissionsAsync());
+  }, [proceed]);
+
+  /** Reopens the system picker so the user can widen a limited grant. */
+  const widenAccess = useCallback(async () => {
+    try {
+      await presentPermissionsPicker();
+    } catch {
+      // Older Android has no picker; re-requesting is the only lever left.
+    }
+    await proceed(await MediaLibrary.getPermissionsAsync());
+  }, [proceed]);
+
+  // On launch, skip straight to the cached result when the library has not
+  // changed (§5.5). Nothing is requested here — a silent check only.
+  const booted = useRef(false);
+  useEffect(() => {
+    if (booted.current) return;
+    booted.current = true;
+
+    (async () => {
+      try {
+        const permission = await MediaLibrary.getPermissionsAsync();
+        if (
+          permission.status !== 'granted' ||
+          permission.accessPrivileges === 'limited'
+        ) {
+          setStage({ name: 'intro' });
+          return;
+        }
+        const cached = await readSummary(await libraryFingerprint());
+        setStage(cached ? { name: 'result', summary: cached } : { name: 'intro' });
+        if (!cached) await scan();
+      } catch {
+        setStage({ name: 'intro' });
+      }
+    })();
+  }, [scan]);
 
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
+      {stage.name === 'boot' && <View style={styles.page} />}
       {stage.name === 'intro' && <Intro onContinue={begin} />}
       {stage.name === 'scanning' && <Scanning count={stage.count} />}
+      {stage.name === 'limited' && <Limited onFix={widenAccess} />}
       {stage.name === 'denied' && <Denied onRetry={begin} />}
       {stage.name === 'result' && (
         <Result summary={stage.summary} width={width} />
@@ -92,6 +154,25 @@ function Scanning({ count }: { count: number }) {
   );
 }
 
+/** Android 14+ can grant access to a hand-picked set of photos. */
+function Limited({ onFix }: { onFix: () => void }) {
+  return (
+    <View style={styles.page}>
+      <View style={styles.center}>
+        <Text style={styles.display}>Latent needs the whole library.</Text>
+        <Text style={styles.body}>
+          It counts photos — how many, when, how many were screens. A handful of
+          selected photos cannot answer that.
+        </Text>
+        <Text style={styles.body}>
+          Nothing is uploaded either way. Your photos stay on this device.
+        </Text>
+      </View>
+      <Button label="Change selection" onPress={onFix} />
+    </View>
+  );
+}
+
 function Denied({ onRetry }: { onRetry: () => void }) {
   return (
     <View style={styles.page}>
@@ -114,9 +195,8 @@ function Result({
   summary: LibrarySummary;
   width: number;
 }) {
-  const { total, screenshots, world, screenshotRatio } = summary;
+  const { total, screenshots, world, screenshotRatio, windowed } = summary;
 
-  // A single bar: the share of the library that was a screen.
   const barWidth = Math.min(width - 48, 420);
   const screenWidth = Math.round(barWidth * screenshotRatio);
 
@@ -145,7 +225,11 @@ function Result({
         </Text>
 
         <Text style={styles.footnote}>
-          {group(total)} photos from the last two years. Read on this device.
+          {group(total)} photos{' '}
+          {windowed
+            ? 'from the last two years.'
+            : 'from your library. This device does not record when they were taken.'}{' '}
+          Read on this device.
         </Text>
       </View>
     </ScrollView>
@@ -197,7 +281,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     height: 10,
-    backgroundColor: '#C9C6BC',
+    backgroundColor: VEIL,
     marginVertical: 8,
     flexDirection: 'row',
   },
@@ -213,8 +297,6 @@ const styles = StyleSheet.create({
     color: INK,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    // letterSpacing adds trailing advance that Android clips off a centred,
-    // shrink-wrapped Text — stretching the label gives the last glyph room.
     alignSelf: 'stretch',
     textAlign: 'center',
   },
