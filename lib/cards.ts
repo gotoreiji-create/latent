@@ -301,6 +301,41 @@ export function placesSub(card: PlacesCard): string | null {
   return `You went back to one of them ${top.visits} times.`;
 }
 
+// --------------------------------------------------------- Contact sheet ----
+
+/**
+ * The library's shape, encoded one character per photo (§9).
+ *
+ * Each character carries an hour bucket (0–23) and whether the photo was a
+ * screenshot — nothing else. No identifier, no date, no coordinate, no
+ * filename. The string cannot be traced back to any photo, which is why it is
+ * safe to cache under §5.5's rule that individual photo information is never
+ * persisted: this is the outline of a library, not a record of its contents.
+ */
+const ALPHABET =
+  'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+export function encodeSheet(photos: PhotoRecord[]): string {
+  let out = '';
+  for (const p of photos) {
+    const hour = p.dated ? new Date(p.time).getHours() : 12;
+    out += ALPHABET[hour * 2 + (p.screenshot ? 1 : 0)];
+  }
+  return out;
+}
+
+export type SheetMark = { hour: number; screenshot: boolean };
+
+export function decodeSheet(sheet: string): SheetMark[] {
+  const marks: SheetMark[] = [];
+  for (const ch of sheet) {
+    const v = ALPHABET.indexOf(ch);
+    if (v < 0) continue;
+    marks.push({ hour: Math.floor(v / 2), screenshot: v % 2 === 1 });
+  }
+  return marks;
+}
+
 // ---------------------------------------------------------------- Card 4 ----
 
 const DAY = 86400000;

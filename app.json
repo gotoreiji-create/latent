@@ -40,7 +40,8 @@
         }
       ],
       "expo-font",
-      "./plugins/withDevApplicationIdSuffix"
+      "./plugins/withDevApplicationIdSuffix",
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

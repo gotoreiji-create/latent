@@ -21,6 +21,8 @@ import {
   IBMPlexMono_500Medium,
 } from '@expo-google-fonts/ibm-plex-mono';
 import { Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
+import * as Sharing from 'expo-sharing';
+import type { ViewShotRef } from 'react-native-view-shot';
 
 import { analyse, type Analysis, type Progress } from './lib/analysis';
 import { readAnalysis, writeAnalysis } from './lib/cache';
@@ -36,6 +38,8 @@ import {
 import { libraryFingerprint } from './lib/library';
 import { colour, font } from './lib/theme';
 import { HourRuler, MonthBand, PlaceField } from './components/instruments';
+import { GhostContactSheet } from './components/GhostContactSheet';
+import { ShareCard } from './components/ShareCard';
 
 type Stage =
   | { name: 'boot' }
@@ -218,9 +222,25 @@ function Portrait({ analysis }: { analysis: Analysis }) {
   const { width } = useWindowDimensions();
   const inner = Math.min(width - 48, 420);
   const { screen, hours, places, change, windowed } = analysis;
+  const shot = useRef<ViewShotRef>(null);
+
+  const share = useCallback(async () => {
+    try {
+      const uri = await shot.current?.capture?.();
+      if (!uri) return;
+      if (!(await Sharing.isAvailableAsync())) return;
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Screen or World',
+      });
+    } catch {
+      // Nothing to say if the sheet cannot be shared; the portrait still stands.
+    }
+  }, []);
 
   return (
     <ScrollView contentContainerStyle={styles.portrait}>
+      <ShareCard ref={shot} analysis={analysis} />
       <Card
         index="01"
         title="Screen or World"
@@ -267,6 +287,12 @@ function Portrait({ analysis }: { analysis: Analysis }) {
           sub={changeSub()}
         />
       )}
+
+      <GhostContactSheet sheet={analysis.sheet} width={inner} />
+
+      <View style={styles.shareRow}>
+        <Button label="Share this" onPress={share} />
+      </View>
 
       <Text style={styles.footnote}>
         {group(screen.total)} photos{' '}
@@ -382,6 +408,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: colour.mark,
   },
+  shareRow: { paddingTop: 32, paddingBottom: 8 },
   footnote: {
     fontFamily: font.dataLight,
     fontSize: 12,

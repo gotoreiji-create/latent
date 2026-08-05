@@ -1,5 +1,6 @@
 import {
   changeCard,
+  encodeSheet,
   hoursCard,
   placesCard,
   sampleLocations,
@@ -17,6 +18,8 @@ export type Analysis = {
   windowed: boolean;
   /** Images that arrived from elsewhere and were left out of every card. */
   received: number;
+  /** One character per photo: the library's shape, and nothing traceable (§9). */
+  sheet: string;
   screen: ScreenCard;
   hours: HoursCard;
   /** Null when too few photos carry coordinates — §6 drops the card entirely. */
@@ -58,6 +61,7 @@ export async function analyse(
   return {
     windowed,
     received,
+    sheet: encodeSheet(mine),
     screen,
     hours,
     // §6: below 15% coverage the three dots would be noise pretending to be a
