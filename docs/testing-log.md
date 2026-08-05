@@ -17,6 +17,7 @@ Discord and the Androidクローズドテスト攻略組 community.
 | Galaxy S26 Ultra | Android 16 | Works. 798 photos, 1 in 3 a screen. |
 | Redmi 12 5G | Android 15 / HyperOS 2.0.12.0 | **Reported 0 photos.** Fixed in versionCode 3. |
 | (unnamed, batty\_\_) | — | Works. Both counts displayed. |
+| Galaxy S25 (SM-S931Q) | Android 16 | Works. 1,213 photos, 1 in 3 a screen. Card 3 dropped — 3% of photos carry coordinates. |
 
 ---
 
@@ -74,6 +75,45 @@ Asked whether the English screen was the intended state.
 mechanism by design. Recorded because it will be asked again.
 
 ---
+
+### 5. Album titles are not a reliable screenshot signal — 2026-08-05
+
+Found while measuring on the owner's Galaxy S25, not reported by a tester.
+
+The device has **two distinct albums both titled "Screenshots"** (296 and 176
+assets). `getAlbumAsync('Screenshots')` returns one id while reporting the
+combined count, so matching on that id found **142 of the 438** screenshots the
+path and filename checks agreed on.
+
+SPEC §5.4 calls album membership the most reliable of the three strategies. On
+this device it is the least reliable. No code change was needed — the three
+checks are unioned rather than tried in order — but the spec's ordering is
+wrong and the path check should be treated as primary.
+
+### 6. Coordinates are rare on Samsung — 2026-08-05
+
+| Device | Photos carrying coordinates |
+|---|---|
+| Pixel 7a | 22% |
+| Galaxy S25 | **3%** |
+
+Samsung's camera does not write location tags by default. Card 3 fell below the
+15% threshold and was dropped automatically, exactly as §6 specifies — but it
+means the card will be absent for a large share of Android users, and the paid
+tier is three cards rather than four for them.
+
+### 7. Received images counted as photographs — 2026-08-05
+
+Images arriving from LINE, downloads, and shares sat in the same library and
+were counted, so "You photographed the world N times" included 144 pictures
+nobody on this phone had taken.
+
+**Change** — files under known receiving directories (`/Download/`,
+`/Pictures/LINE/`, `/WhatsApp/Media/`, and similar) are excluded from every
+card. Matched on path rather than album title, for the reason in report 5, and
+only positive matches are excluded so an unfamiliar phone loses nothing.
+
+Galaxy S25: 1,357 → 1,213 photos, world 918 → 774, screenshots unchanged at 439.
 
 ## Known gaps
 
