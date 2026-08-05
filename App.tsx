@@ -11,6 +11,16 @@ import { StatusBar } from 'expo-status-bar';
 import * as MediaLibrary from 'expo-media-library/legacy';
 // presentPermissionsPicker only exists on the new API surface.
 import { presentPermissionsPicker } from 'expo-media-library';
+import {
+  useFonts,
+  Archivo_700Bold,
+  Archivo_800ExtraBold,
+} from '@expo-google-fonts/archivo';
+import {
+  IBMPlexMono_400Regular,
+  IBMPlexMono_500Medium,
+} from '@expo-google-fonts/ibm-plex-mono';
+import { Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
 
 import { analyse, type Analysis, type Progress } from './lib/analysis';
 import { readAnalysis, writeAnalysis } from './lib/cache';
@@ -21,15 +31,11 @@ import {
   placesHeadline,
   placesSub,
   screenHeadline,
+  type Headline,
 } from './lib/cards';
 import { libraryFingerprint } from './lib/library';
-
-// SPEC §9 colour tokens.
-const GROUND = '#E6E4DD';
-const INK = '#1B1D1A';
-const MARK = '#4A5D57';
-const SIGNAL = '#1F4B99';
-const VEIL = '#C9C6BC';
+import { colour, font } from './lib/theme';
+import { HourRuler, MonthBand, PlaceField } from './components/instruments';
 
 type Stage =
   | { name: 'boot' }
@@ -43,6 +49,14 @@ const group = (n: number) => n.toLocaleString('en-US');
 
 export default function App() {
   const [stage, setStage] = useState<Stage>({ name: 'boot' });
+  const [fontsReady] = useFonts({
+    Archivo_700Bold,
+    Archivo_800ExtraBold,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
+    Inter_400Regular,
+    Inter_500Medium,
+  });
 
   const run = useCallback(async () => {
     setStage({ name: 'scanning', progress: { phase: 'reading', count: 0 } });
@@ -116,6 +130,10 @@ export default function App() {
     })();
   }, [run]);
 
+  // Typefaces are the product here (§9); showing the system font first and
+  // swapping would be worse than a beat of empty paper.
+  if (!fontsReady) return <View style={styles.root} />;
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
@@ -149,7 +167,7 @@ function Scanning({ progress }: { progress: Progress }) {
   return (
     <View style={styles.page}>
       <View style={styles.stack}>
-        <Text style={styles.figure}>{group(progress.count)}</Text>
+        <Text style={styles.counter}>{group(progress.count)}</Text>
         <Text style={styles.body}>
           {progress.phase === 'reading'
             ? 'Reading metadata.'
@@ -204,6 +222,8 @@ function Portrait({ analysis }: { analysis: Analysis }) {
   return (
     <ScrollView contentContainerStyle={styles.portrait}>
       <Card
+        index="01"
+        title="Screen or World"
         headline={screenHeadline(screen)}
         sub={`You photographed the world ${group(
           screen.world
@@ -213,24 +233,39 @@ function Portrait({ analysis }: { analysis: Analysis }) {
             the window — a spare handset, a phone kept for screenshots — get the
             figures without the chart. */}
         {screen.months.some((m) => m.count > 0) ? (
-          <MonthBars months={screen.months} width={inner} />
+          <MonthBand months={screen.months} width={inner} />
         ) : null}
       </Card>
 
       {hours.sample > 0 && (
-        <Card headline={hoursHeadline(hours)} sub={hoursSub(hours)}>
-          <HourBlocks histogram={hours.histogram} width={inner} />
+        <Card
+          index="02"
+          title="When Your Eyes Open"
+          headline={hoursHeadline(hours)}
+          sub={hoursSub(hours)}
+        >
+          <HourRuler histogram={hours.histogram} width={inner} />
         </Card>
       )}
 
       {places && (
-        <Card headline={placesHeadline(places)} sub={placesSub(places)}>
-          <PlaceDots places={places.places} width={inner} />
+        <Card
+          index="03"
+          title="Places You Returned To"
+          headline={placesHeadline(places)}
+          sub={placesSub(places)}
+        >
+          <PlaceField places={places.places} width={inner} />
         </Card>
       )}
 
       {change.top && (
-        <Card headline={change.top.headline} sub={changeSub()} />
+        <Card
+          index={places ? '04' : '03'}
+          title="What Changed"
+          headline={change.top.headline}
+          sub={changeSub()}
+        />
       )}
 
       <Text style={styles.footnote}>
@@ -245,127 +280,48 @@ function Portrait({ analysis }: { analysis: Analysis }) {
 }
 
 function Card({
+  index,
+  title,
   headline,
   sub,
   children,
 }: {
-  headline: string;
+  index: string;
+  title: string;
+  headline: Headline;
   sub?: string | null;
   children?: React.ReactNode;
 }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.display}>{headline}</Text>
+      <View style={styles.slug}>
+        <Text style={styles.slugIndex}>{index}</Text>
+        <View style={styles.rule} />
+        <Text style={styles.slugTitle}>{title}</Text>
+      </View>
+
+      <Text style={styles.display}>
+        {headline.before}
+        {headline.figure ? (
+          <Text
+            style={
+              // §9 wants numbers monospaced. A figure spelled as a word — "You
+              // returned to three places" — is not a number, and setting it in
+              // Plex Mono next to Archivo just looks like a mistake.
+              /^\d/.test(headline.figure) ? styles.figure : styles.figureWord
+            }
+          >
+            {headline.figure}
+          </Text>
+        ) : null}
+        {headline.after}
+      </Text>
+
       {children}
       {sub ? <Text style={styles.body}>{sub}</Text> : null}
     </View>
   );
 }
-
-/** Card 1 — one bar per month, filled by that month's screenshot share. */
-function MonthBars({
-  months,
-  width,
-}: {
-  months: { label: string; ratio: number; count: number }[];
-  width: number;
-}) {
-  const gap = 4;
-  const barWidth = (width - gap * (months.length - 1)) / months.length;
-  return (
-    <View style={[styles.row, { width, height: 96 }]}>
-      {months.map((m, i) => (
-        <View
-          key={i}
-          style={{
-            width: barWidth,
-            marginRight: i === months.length - 1 ? 0 : gap,
-            height: '100%',
-            backgroundColor: VEIL,
-            justifyContent: 'flex-end',
-          }}
-        >
-          <View
-            style={{
-              height: `${Math.round(m.ratio * 100)}%`,
-              backgroundColor: m.count === 0 ? 'transparent' : SIGNAL,
-            }}
-          />
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/** Card 2 — 24 cells in a row, shaded by how often that hour appears (§6). */
-function HourBlocks({
-  histogram,
-  width,
-}: {
-  histogram: number[];
-  width: number;
-}) {
-  const peak = Math.max(...histogram, 1);
-  const gap = 2;
-  const cell = (width - gap * 23) / 24;
-  return (
-    <View style={[styles.row, { width, height: 44 }]}>
-      {histogram.map((count, h) => (
-        <View
-          key={h}
-          style={{
-            width: cell,
-            marginRight: h === 23 ? 0 : gap,
-            height: '100%',
-            backgroundColor: INK,
-            opacity: 0.08 + (count / peak) * 0.92,
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
-/**
- * Card 3 — the three places, drawn only in relation to each other. No map, no
- * place name, no coordinate on screen (§6).
- */
-function PlaceDots({ places, width }: { places: Place[]; width: number }) {
-  const height = 160;
-  if (places.length === 0) return null;
-
-  const lats = places.map((p) => p.lat);
-  const lons = places.map((p) => p.lon);
-  const spanLat = Math.max(...lats) - Math.min(...lats) || 1;
-  const spanLon = Math.max(...lons) - Math.min(...lons) || 1;
-  const most = Math.max(...places.map((p) => p.visits));
-
-  return (
-    <View style={{ width, height }}>
-      {places.map((p, i) => {
-        const size = 16 + (p.visits / most) * 48;
-        const x = ((p.lon - Math.min(...lons)) / spanLon) * (width - size);
-        const y = ((Math.max(...lats) - p.lat) / spanLat) * (height - size);
-        return (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: places.length === 1 ? width / 2 - size / 2 : x,
-              top: places.length === 1 ? height / 2 - size / 2 : y,
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              backgroundColor: i === 0 ? SIGNAL : MARK,
-            }}
-          />
-        );
-      })}
-    </View>
-  );
-}
-
-type Place = { lat: number; lon: number; visits: number };
 
 function Button({ label, onPress }: { label: string; onPress: () => void }) {
   return (
@@ -379,7 +335,7 @@ function Button({ label, onPress }: { label: string; onPress: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: GROUND },
+  root: { flex: 1, backgroundColor: colour.ground },
   page: {
     flexGrow: 1,
     paddingHorizontal: 24,
@@ -387,42 +343,65 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     justifyContent: 'space-between',
   },
-  portrait: { paddingHorizontal: 24, paddingTop: 80, paddingBottom: 64 },
+  portrait: { paddingHorizontal: 24, paddingTop: 72, paddingBottom: 72 },
   stack: { gap: 20 },
-  card: { gap: 20, paddingBottom: 64 },
-  row: { flexDirection: 'row', alignItems: 'flex-end' },
-  display: {
-    fontSize: 34,
-    lineHeight: 40,
-    fontWeight: '700',
-    color: INK,
-    letterSpacing: -0.5,
+  card: { gap: 18, paddingBottom: 72 },
+
+  // The index/rule/title strip that makes each card read as a reading off an
+  // instrument rather than a slide.
+  slug: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  slugIndex: { fontFamily: font.data, fontSize: 11, color: colour.mark },
+  rule: { flex: 1, height: 1, backgroundColor: colour.veil },
+  slugTitle: {
+    fontFamily: font.data,
+    fontSize: 11,
+    color: colour.mark,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
-  figure: {
-    fontFamily: 'monospace',
-    fontSize: 64,
-    color: SIGNAL,
+
+  display: {
+    fontFamily: font.displayHeavy,
+    fontSize: 32,
+    lineHeight: 38,
+    color: colour.ink,
+    letterSpacing: -0.6,
+  },
+  /** The one blue thing on the card (§9). */
+  figure: { fontFamily: font.data, fontSize: 32, color: colour.signal },
+  figureWord: { fontFamily: font.displayHeavy, color: colour.signal },
+  counter: {
+    fontFamily: font.data,
+    fontSize: 60,
+    color: colour.signal,
     letterSpacing: -1,
   },
-  body: { fontSize: 17, lineHeight: 25, color: MARK },
-  footnote: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: MARK,
-    marginTop: 8,
-    fontFamily: 'monospace',
+  body: {
+    fontFamily: font.body,
+    fontSize: 16,
+    lineHeight: 24,
+    color: colour.mark,
   },
+  footnote: {
+    fontFamily: font.dataLight,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colour.mark,
+    marginTop: 8,
+  },
+
   button: {
     borderWidth: 1,
-    borderColor: INK,
+    borderColor: colour.ink,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  buttonPressed: { backgroundColor: INK },
+  buttonPressed: { backgroundColor: colour.ink },
   buttonLabel: {
-    fontSize: 16,
-    color: INK,
-    letterSpacing: 1,
+    fontFamily: font.data,
+    fontSize: 14,
+    color: colour.ink,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
     alignSelf: 'stretch',
     textAlign: 'center',

@@ -5,6 +5,15 @@ import * as Legacy from 'expo-media-library/legacy';
 
 import type { PhotoRecord } from './library';
 
+/**
+ * A headline split around its one figure.
+ *
+ * §9 allows the signal blue exactly once per card, on the number in the
+ * headline. Keeping the sentence in three pieces is what lets the UI colour
+ * that number and nothing else.
+ */
+export type Headline = { before: string; figure: string; after: string };
+
 // ---------------------------------------------------------------- Card 1 ----
 
 export type ScreenCard = {
@@ -66,12 +75,26 @@ export function screenCard(photos: PhotoRecord[]): ScreenCard {
  * library — "1 in 1.3" is not a sentence. Above that point the ratio is stated
  * out of ten instead.
  */
-export function screenHeadline(card: ScreenCard): string {
+export function screenHeadline(card: ScreenCard): Headline {
   const { ratio: r, total } = card;
-  if (total === 0) return 'There is nothing here yet.';
-  if (r === 0) return 'None of your photos was a screen.';
-  if (r >= 0.5) return `${Math.round(r * 10)} in 10 photos was a screen.`;
-  return `1 in ${Math.round(1 / r)} photos was a screen.`;
+  if (total === 0) {
+    return { before: 'There is nothing here yet.', figure: '', after: '' };
+  }
+  if (r === 0) {
+    return { before: 'None of your photos was a screen.', figure: '', after: '' };
+  }
+  if (r >= 0.5) {
+    return {
+      before: '',
+      figure: `${Math.round(r * 10)}`,
+      after: ' in 10 photos was a screen.',
+    };
+  }
+  return {
+    before: '1 in ',
+    figure: `${Math.round(1 / r)}`,
+    after: ' photos was a screen.',
+  };
 }
 
 // ---------------------------------------------------------------- Card 2 ----
@@ -139,8 +162,12 @@ export function hoursCard(photos: PhotoRecord[]): HoursCard {
   };
 }
 
-export function hoursHeadline(card: HoursCard): string {
-  return `Your eyes open at ${formatHour(card.peakHour)}.`;
+export function hoursHeadline(card: HoursCard): Headline {
+  return {
+    before: 'Your eyes open at ',
+    figure: formatHour(card.peakHour),
+    after: '.',
+  };
 }
 
 export function hoursSub(card: HoursCard): string | null {
@@ -153,6 +180,7 @@ export function hoursSub(card: HoursCard): string | null {
 // ---------------------------------------------------------------- Card 3 ----
 
 export type Place = { lat: number; lon: number; visits: number };
+export type { Place as PlaceMark };
 
 export type PlacesCard = {
   places: Place[];
@@ -255,11 +283,16 @@ export function placesCard(
   };
 }
 
-export function placesHeadline(card: PlacesCard): string {
+export function placesHeadline(card: PlacesCard): Headline {
   const n = card.places.length;
-  if (n === 0) return 'You did not stay anywhere.';
-  if (n === 1) return 'You returned to one place.';
-  return `You returned to ${n === 2 ? 'two' : 'three'} places.`;
+  if (n === 0) {
+    return { before: 'You did not stay anywhere.', figure: '', after: '' };
+  }
+  return {
+    before: 'You returned to ',
+    figure: n === 1 ? 'one' : n === 2 ? 'two' : 'three',
+    after: n === 1 ? ' place.' : ' places.',
+  };
 }
 
 export function placesSub(card: PlacesCard): string | null {
@@ -277,7 +310,7 @@ export type Change = {
   label: string;
   /** Signed relative change; 0.4 means "40% more". */
   delta: number;
-  headline: string;
+  headline: Headline;
 };
 
 export type ChangeCard = {
@@ -314,30 +347,35 @@ export function changeCard(photos: PhotoRecord[]): ChangeCard {
   candidates.push({
     label: 'world',
     delta: worldDelta,
-    headline:
-      worldDelta < 0
-        ? `You took ${Math.round(-worldDelta * 100)}% fewer photos of the world.`
-        : `You took ${Math.round(worldDelta * 100)}% more photos of the world.`,
+    headline: {
+      before: 'You took ',
+      figure: `${Math.round(Math.abs(worldDelta) * 100)}%`,
+      after: worldDelta < 0
+        ? ' fewer photos of the world.'
+        : ' more photos of the world.',
+    },
   });
 
   const totalDelta = (recent.length - prior.length) / prior.length;
   candidates.push({
     label: 'total',
     delta: totalDelta,
-    headline:
-      totalDelta < 0
-        ? `You photographed ${Math.round(-totalDelta * 100)}% less.`
-        : `You photographed ${Math.round(totalDelta * 100)}% more.`,
+    headline: {
+      before: 'You photographed ',
+      figure: `${Math.round(Math.abs(totalDelta) * 100)}%`,
+      after: totalDelta < 0 ? ' less.' : ' more.',
+    },
   });
 
   const ratioShift = ratioOf(recent) - ratioOf(prior);
   candidates.push({
     label: 'screens',
     delta: ratioShift,
-    headline:
-      ratioShift < 0
-        ? `Screens fell to ${Math.round(ratioOf(recent) * 100)}% of your photos.`
-        : `Screens rose to ${Math.round(ratioOf(recent) * 100)}% of your photos.`,
+    headline: {
+      before: ratioShift < 0 ? 'Screens fell to ' : 'Screens rose to ',
+      figure: `${Math.round(ratioOf(recent) * 100)}%`,
+      after: ' of your photos.',
+    },
   });
 
   const peakOf = (set: PhotoRecord[]) => hoursCard(set).peakHour;
@@ -348,9 +386,13 @@ export function changeCard(photos: PhotoRecord[]): ChangeCard {
       label: 'hour',
       // Twelve hours is the largest possible shift; scale it to compare.
       delta: hours / 12,
-      headline: `Your day moved ${hours} hour${hours === 1 ? '' : 's'} ${
-        shift > 0 ? 'later' : 'earlier'
-      }.`,
+      headline: {
+        before: 'Your day moved ',
+        figure: `${hours}`,
+        after: ` hour${hours === 1 ? '' : 's'} ${
+          shift > 0 ? 'later' : 'earlier'
+        }.`,
+      },
     });
   }
 

@@ -38,7 +38,9 @@
             "photo"
           ]
         }
-      ]
+      ],
+      "expo-font",
+      "./plugins/withDevApplicationIdSuffix"
     ],
     "extra": {
       "eas": {
