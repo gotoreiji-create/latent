@@ -115,6 +115,25 @@ only positive matches are excluded so an unfamiliar phone loses nothing.
 
 Galaxy S25: 1,357 → 1,213 photos, world 918 → 774, screenshots unchanged at 439.
 
+### 8. "Ask again" did nothing after a refusal — 2026-08-06
+
+**Reported by** the owner, reproducing a first run.
+
+Declining the photo permission led to a screen offering "Ask again", and the
+button did nothing. Android stops showing the permission dialog after the
+second refusal and `requestPermissionsAsync()` returns `denied` immediately, so
+the button was working and the system was silent.
+
+**Change** — the screen reads `canAskAgain`. While Android will still ask, the
+button re-requests as before; once it will not, the button becomes "Open
+settings", opens the system page, and a paragraph explains where the toggle is.
+Returning to the app re-checks the permission, so granting it in settings no
+longer leaves the user staring at a screen that says the app cannot read
+anything.
+
+This is §12's "does not crash and explains itself when the permission is
+refused" — previously only half met.
+
 ## Known gaps
 
 - The limited-access screen added in versionCode 3 has not been reproduced on a

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  AppState,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -46,7 +48,12 @@ type Stage =
   | { name: 'intro' }
   | { name: 'scanning'; progress: Progress }
   | { name: 'limited' }
-  | { name: 'denied' }
+  /**
+   * `canAskAgain` is false once Android has stopped showing the dialog. The
+   * button has to change with it, or it looks broken — which is exactly how a
+   * tester found this.
+   */
+  | { name: 'denied'; canAskAgain: boolean }
   | { name: 'portrait'; analysis: Analysis };
 
 const group = (n: number) => n.toLocaleString('en-US');
@@ -75,7 +82,7 @@ export default function App() {
   const proceed = useCallback(
     async (permission: MediaLibrary.PermissionResponse) => {
       if (permission.status !== 'granted') {
-        setStage({ name: 'denied' });
+        setStage({ name: 'denied', canAskAgain: permission.canAskAgain });
         return;
       }
       if (permission.accessPrivileges === 'limited') {
@@ -85,7 +92,7 @@ export default function App() {
       try {
         await run();
       } catch {
-        setStage({ name: 'denied' });
+        setStage({ name: 'denied', canAskAgain: false });
       }
     },
     [run]
@@ -134,6 +141,23 @@ export default function App() {
     })();
   }, [run]);
 
+  // Someone who grants the permission in system settings comes back to a screen
+  // still telling them they have not. Re-check on the way in.
+  useEffect(() => {
+    if (stage.name !== 'denied' && stage.name !== 'limited') return;
+    const sub = AppState.addEventListener('change', async (next) => {
+      if (next !== 'active') return;
+      const permission = await MediaLibrary.getPermissionsAsync();
+      if (
+        permission.status === 'granted' &&
+        permission.accessPrivileges !== 'limited'
+      ) {
+        await proceed(permission);
+      }
+    });
+    return () => sub.remove();
+  }, [stage.name, proceed]);
+
   // Typefaces are the product here (§9); showing the system font first and
   // swapping would be worse than a beat of empty paper.
   if (!fontsReady) return <View style={styles.root} />;
@@ -145,7 +169,13 @@ export default function App() {
       {stage.name === 'intro' && <Intro onContinue={begin} />}
       {stage.name === 'scanning' && <Scanning progress={stage.progress} />}
       {stage.name === 'limited' && <Limited onFix={widenAccess} />}
-      {stage.name === 'denied' && <Denied onRetry={begin} />}
+      {stage.name === 'denied' && (
+        <Denied
+          canAskAgain={stage.canAskAgain}
+          onRetry={begin}
+          onSettings={() => Linking.openSettings()}
+        />
+      )}
       {stage.name === 'portrait' && <Portrait analysis={stage.analysis} />}
     </View>
   );
@@ -201,7 +231,15 @@ function Limited({ onFix }: { onFix: () => void }) {
   );
 }
 
-function Denied({ onRetry }: { onRetry: () => void }) {
+function Denied({
+  canAskAgain,
+  onRetry,
+  onSettings,
+}: {
+  canAskAgain: boolean;
+  onRetry: () => void;
+  onSettings: () => void;
+}) {
   return (
     <View style={styles.page}>
       <View style={styles.stack}>
@@ -210,8 +248,17 @@ function Denied({ onRetry }: { onRetry: () => void }) {
           Without access to the photo library there is no metadata to count.
           Nothing else in this app works without it.
         </Text>
+        {!canAskAgain && (
+          <Text style={styles.body}>
+            Android will not ask again from here. The permission can be turned
+            on in system settings, under Permissions, Photos and videos.
+          </Text>
+        )}
       </View>
-      <Button label="Ask again" onPress={onRetry} />
+      <Button
+        label={canAskAgain ? 'Ask again' : 'Open settings'}
+        onPress={canAskAgain ? onRetry : onSettings}
+      />
     </View>
   );
 }
