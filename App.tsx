@@ -13,16 +13,16 @@ import { StatusBar } from 'expo-status-bar';
 import * as MediaLibrary from 'expo-media-library/legacy';
 // presentPermissionsPicker only exists on the new API surface.
 import { presentPermissionsPicker } from 'expo-media-library';
-import {
-  useFonts,
-  Archivo_700Bold,
-  Archivo_800ExtraBold,
-} from '@expo-google-fonts/archivo';
-import {
-  IBMPlexMono_400Regular,
-  IBMPlexMono_500Medium,
-} from '@expo-google-fonts/ibm-plex-mono';
-import { Inter_400Regular, Inter_500Medium } from '@expo-google-fonts/inter';
+// Imported one weight at a time. Reaching for the package root pulls every
+// weight and italic of all three families into the bundle — 50 files and 8MB
+// for the six faces this app actually sets.
+import { useFonts } from 'expo-font';
+import { Archivo_700Bold } from '@expo-google-fonts/archivo/700Bold';
+import { Archivo_800ExtraBold } from '@expo-google-fonts/archivo/800ExtraBold';
+import { IBMPlexMono_400Regular } from '@expo-google-fonts/ibm-plex-mono/400Regular';
+import { IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono/500Medium';
+import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
+import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
 import * as Sharing from 'expo-sharing';
 import type { ViewShotRef } from 'react-native-view-shot';
 
