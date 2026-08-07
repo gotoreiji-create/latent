@@ -38,6 +38,7 @@ import {
   type Headline,
 } from './lib/cards';
 import { libraryFingerprint } from './lib/library';
+import { configurePurchases } from './lib/purchases';
 import { colour, font } from './lib/theme';
 import { HourRuler, MonthBand, PlaceField } from './components/instruments';
 import { GhostContactSheet } from './components/GhostContactSheet';
@@ -118,6 +119,8 @@ export default function App() {
   useEffect(() => {
     if (booted.current) return;
     booted.current = true;
+
+    configurePurchases();
 
     (async () => {
       try {
