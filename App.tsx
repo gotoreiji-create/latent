@@ -38,10 +38,11 @@ import {
   type Headline,
 } from './lib/cards';
 import { libraryFingerprint } from './lib/library';
-import { configurePurchases } from './lib/purchases';
+import { configurePurchases, hasPro } from './lib/purchases';
 import { colour, font } from './lib/theme';
 import { HourRuler, MonthBand, PlaceField } from './components/instruments';
 import { GhostContactSheet } from './components/GhostContactSheet';
+import { Paywall } from './components/Paywall';
 import { ShareCard } from './components/ShareCard';
 
 type Stage =
@@ -274,6 +275,13 @@ function Portrait({ analysis }: { analysis: Analysis }) {
   const { screen, hours, places, change, windowed } = analysis;
   const shot = useRef<ViewShotRef>(null);
 
+  const [pro, setPro] = useState(false);
+  const [paywall, setPaywall] = useState(false);
+
+  useEffect(() => {
+    hasPro().then(setPro);
+  }, []);
+
   const share = useCallback(async () => {
     try {
       const uri = await shot.current?.capture?.();
@@ -313,6 +321,8 @@ function Portrait({ analysis }: { analysis: Analysis }) {
           title="When Your Eyes Open"
           headline={hoursHeadline(hours)}
           sub={hoursSub(hours)}
+          locked={!pro}
+          onLocked={() => setPaywall(true)}
         >
           <HourRuler histogram={hours.histogram} width={inner} />
         </Card>
@@ -324,6 +334,8 @@ function Portrait({ analysis }: { analysis: Analysis }) {
           title="Places You Returned To"
           headline={placesHeadline(places)}
           sub={placesSub(places)}
+          locked={!pro}
+          onLocked={() => setPaywall(true)}
         >
           <PlaceField places={places.places} width={inner} />
         </Card>
@@ -335,6 +347,8 @@ function Portrait({ analysis }: { analysis: Analysis }) {
           title="What Changed"
           headline={change.top.headline}
           sub={changeSub()}
+          locked={!pro}
+          onLocked={() => setPaywall(true)}
         />
       )}
 
@@ -351,6 +365,15 @@ function Portrait({ analysis }: { analysis: Analysis }) {
           : 'from your library. This device does not record when they were taken.'}{' '}
         Read on this device.
       </Text>
+
+      <Paywall
+        visible={paywall}
+        onClose={() => setPaywall(false)}
+        onUnlocked={() => {
+          setPro(true);
+          setPaywall(false);
+        }}
+      />
     </ScrollView>
   );
 }
@@ -360,22 +383,20 @@ function Card({
   title,
   headline,
   sub,
+  locked,
+  onLocked,
   children,
 }: {
   index: string;
   title: string;
   headline: Headline;
   sub?: string | null;
+  locked?: boolean;
+  onLocked?: () => void;
   children?: React.ReactNode;
 }) {
-  return (
-    <View style={styles.card}>
-      <View style={styles.slug}>
-        <Text style={styles.slugIndex}>{index}</Text>
-        <View style={styles.rule} />
-        <Text style={styles.slugTitle}>{title}</Text>
-      </View>
-
+  const words = (
+    <>
       <Text style={styles.display}>
         {headline.before}
         {headline.figure ? (
@@ -392,10 +413,43 @@ function Card({
         ) : null}
         {headline.after}
       </Text>
+      {sub ? <Text style={styles.body}>{sub}</Text> : null}
+    </>
+  );
+
+  const body = (
+    <View style={styles.card}>
+      <View style={styles.slug}>
+        <Text style={styles.slugIndex}>{index}</Text>
+        <View style={styles.rule} />
+        <Text style={styles.slugTitle}>
+          {title}
+          {locked ? '  ·  PRO' : ''}
+        </Text>
+      </View>
+
+      {/* §7.5 — show that it exists, hide what it says. The reading itself
+          stays visible; only the sentence and the figure go under the veil, so
+          the card reads as something half-legible rather than something
+          withheld. */}
+      {locked ? (
+        <View>
+          {words}
+          <View style={styles.veil} pointerEvents="none" />
+        </View>
+      ) : (
+        words
+      )}
 
       {children}
-      {sub ? <Text style={styles.body}>{sub}</Text> : null}
     </View>
+  );
+
+  if (!locked) return body;
+  return (
+    <Pressable onPress={onLocked} accessibilityRole="button">
+      {body}
+    </Pressable>
   );
 }
 
@@ -457,6 +511,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: colour.mark,
+  },
+  /**
+   * The paywall's veil. Ground-coloured and almost opaque: the words underneath
+   * survive as shapes, which is the point — §7.5 wants "wanting to see what is
+   * half visible", not a blank where a card used to be.
+   */
+  veil: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colour.ground,
+    opacity: 0.88,
   },
   shareRow: { paddingTop: 32, paddingBottom: 8 },
   footnote: {
