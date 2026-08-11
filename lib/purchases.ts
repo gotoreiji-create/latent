@@ -82,7 +82,16 @@ function trialDaysOf(pkg: PurchasesPackage): number | null {
 export async function loadPlans(): Promise<Plan[]> {
   if (!KEY) return [];
   try {
-    const offerings = await Purchases.getOfferings();
+    // Play's billing client never gives up when it cannot resolve the app —
+    // a build whose package name is not on the store, a device with no Play
+    // Services — and the sheet would sit on a spinner for ever. Ten seconds is
+    // long enough for a slow network and short enough to still be an answer.
+    const offerings = await Promise.race([
+      Purchases.getOfferings(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 10000)
+      ),
+    ]);
     const packages = offerings.current?.availablePackages ?? [];
     return packages
       .map((pkg) => ({
