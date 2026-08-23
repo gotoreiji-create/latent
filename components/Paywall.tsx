@@ -9,7 +9,13 @@ import {
   View,
 } from 'react-native';
 
-import { buy, loadPlans, restore, type Plan } from '../lib/purchases';
+import {
+  buy,
+  loadPlans,
+  plansError,
+  restore,
+  type Plan,
+} from '../lib/purchases';
 import { colour, font } from '../lib/theme';
 
 /**
@@ -94,9 +100,16 @@ export function Paywall({
             {plans === null ? (
               <ActivityIndicator color={colour.mark} />
             ) : plans.length === 0 ? (
-              <Text style={styles.body}>
-                The store is not answering right now. Try again later.
-              </Text>
+              <>
+                <Text style={styles.body}>
+                  The store is not answering right now. Try again later.
+                </Text>
+                {/* Temporary: the failure is otherwise invisible on a build
+                    installed from Play, which is the only place billing runs. */}
+                {plansError() ? (
+                  <Text style={styles.fine}>{plansError()}</Text>
+                ) : null}
+              </>
             ) : (
               plans.map((plan, i) => (
                 <PlanRow

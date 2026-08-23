@@ -26,11 +26,23 @@ export const billingConfigured = Boolean(KEY);
 export function configurePurchases(): void {
   if (!KEY) return;
   try {
-    if (__DEV__) Purchases.setLogLevel(LOG_LEVEL.WARN);
+    // Verbose in release too, for now. The store returns nothing on a build
+    // installed from Play and the reason is invisible without this — release
+    // builds are the only ones where billing works at all, so they are the
+    // only place the failure can be observed. Turn back down once purchases
+    // are confirmed.
+    Purchases.setLogLevel(LOG_LEVEL.DEBUG);
     Purchases.configure({ apiKey: KEY });
   } catch {
     // Nothing to recover; hasPro() will simply keep answering false.
   }
+}
+
+/** Set when loadPlans fails, so the sheet can say what actually went wrong. */
+let lastPlansError: string | null = null;
+
+export function plansError(): string | null {
+  return lastPlansError;
 }
 
 export async function hasPro(): Promise<boolean> {
@@ -93,6 +105,16 @@ export async function loadPlans(): Promise<Plan[]> {
       ),
     ]);
     const packages = offerings.current?.availablePackages ?? [];
+    if (packages.length === 0) {
+      // Distinguish "RevenueCat has no current offering" from "the offering is
+      // there but Play returned no product for it" — they need opposite fixes.
+      const all = Object.keys(offerings.all ?? {});
+      lastPlansError = offerings.current
+        ? `offering "${offerings.current.identifier}" has no available packages (all: ${all.join(', ') || 'none'})`
+        : `no current offering (all: ${all.join(', ') || 'none'})`;
+      return [];
+    }
+    lastPlansError = null;
     return packages
       .map((pkg) => ({
         pkg,
@@ -101,7 +123,8 @@ export async function loadPlans(): Promise<Plan[]> {
         trialDays: trialDaysOf(pkg),
       }))
       .sort((a, b) => (a.period === 'year' ? -1 : b.period === 'year' ? 1 : 0));
-  } catch {
+  } catch (e) {
+    lastPlansError = e instanceof Error ? e.message : String(e);
     return [];
   }
 }
