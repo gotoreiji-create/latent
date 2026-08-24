@@ -134,6 +134,30 @@ anything.
 This is §12's "does not crash and explains itself when the permission is
 refused" — previously only half met.
 
+### 9. The paywall never reached RevenueCat — 2026-08-25
+
+Found in-house. Every Play build from versionCode 6 onward showed "the store is
+not answering" where the prices should be, for twelve days.
+
+**Cause** — `.env` is gitignored, and EAS Build only uploads what git tracks, so
+`EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` was undefined in every cloud build. The SDK
+was never configured and `loadPlans` returned empty at its first line, which is
+also why no RevenueCat log line ever appeared. EAS had said so from the first
+build — "No environment variables ... found for the production environment" —
+and it read as boilerplate.
+
+What made it slow: billing only works on a release build installed from Play,
+and Metro reads the local `.env`, so the development build had the key and got
+far enough to report a *different* error. The two builds failed for unrelated
+reasons and each one's symptom argued against the other's cause.
+
+**Change** — the key is registered as an EAS environment variable on the
+production environment, and a diagnostic build was added first (release-level
+logging, plus the reason for an empty offering shown under the fallback line)
+because guessing had already cost more than the build queue would.
+
+versionCode 8 shows ¥3,180 a year and ¥800 a month, both with seven days free.
+
 ## Known gaps
 
 - The limited-access screen added in versionCode 3 has not been reproduced on a
