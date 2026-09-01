@@ -1,7 +1,7 @@
 # Privacy Policy for Latent
 
 **Effective date:** August 2, 2026
-**Last updated:** August 2, 2026
+**Last updated:** September 2, 2026
 
 Latent is an Android application that reads metadata from the photo library on your
 device and shows you a small number of summary cards about it.
@@ -72,6 +72,8 @@ in Android system settings.
 |---|---|
 | `READ_MEDIA_IMAGES` | To read the metadata described in section 1 |
 | `ACCESS_MEDIA_LOCATION` | To read GPS coordinates stored inside photo files |
+| `INTERNET` | Used only to verify subscription purchases with RevenueCat. No photo data travels over it. |
+| `com.android.vending.BILLING` | To offer the subscription through Google Play |
 
 You may decline either permission, and you may revoke them at any time in Android
 system settings. If you decline, Latent will explain what it cannot show you and
@@ -81,9 +83,8 @@ will continue to run.
 
 ## 5. Third-party services Latent does connect to
 
-Latent is not entirely offline. Three third-party services are used, and each
-receives only the data listed below. **None of them receives anything derived from
-your photos.**
+Latent is not entirely offline. One third-party service is used, and it receives
+only the data listed below. **It receives nothing derived from your photos.**
 
 ### RevenueCat
 
@@ -94,25 +95,8 @@ identifier that is not linked to your name, email address, or photo data.
 
 Privacy policy: https://www.revenuecat.com/privacy
 
-### OneSignal
-
-Used to deliver push notifications.
-
-Receives: a push notification token and your notification subscription status.
-
-You can disable notifications at any time in Android system settings.
-
-Privacy policy: https://onesignal.com/privacy_policy
-
-### Layers
-
-Used to measure how the app is used in aggregate.
-
-Receives: the standard analytics events provided by the Layers SDK, such as app
-opens and screen views. It does not receive photo metadata or any figure calculated
-from your library.
-
-Privacy policy: https://layers.to/privacy
+Latent contains no advertising, no analytics, and no crash reporting. It does not
+collect an advertising ID.
 
 ---
 
@@ -143,8 +127,8 @@ Because Latent stores your data only on your own device, you control it directly
 - **To stop Latent reading your library:** revoke the media permission in Android
   system settings.
 
-For subscription data held by RevenueCat, or notification data held by OneSignal,
-contact us at the address below and we will help you make a deletion request.
+For subscription data held by RevenueCat, contact us at the address below and we
+will help you make a deletion request.
 
 ---
 
