@@ -117,18 +117,37 @@ personal information from children under 13.
 
 ---
 
-## 8. Your rights
+## 8. Deleting your data
 
-Because Latent stores your data only on your own device, you control it directly:
+Latent holds two kinds of data, and each is deleted differently.
 
-- **To see what Latent holds:** open the app.
-- **To delete everything:** uninstall Latent, or clear the app's storage in Android
-  system settings.
-- **To stop Latent reading your library:** revoke the media permission in Android
-  system settings.
+### Summary results, stored on your device
 
-For subscription data held by RevenueCat, contact us at the address below and we
-will help you make a deletion request.
+The calculated figures described in section 3 — never any photo, and never any
+per-photo record.
+
+**To delete:** uninstall Latent, or open Android system settings → Apps → Latent
+→ Storage → Clear storage. Deletion is immediate and complete.
+
+**If you do nothing:** the data stays on your device until you remove it. It is
+never uploaded, so there is no copy anywhere else to delete.
+
+### Subscription status, held by RevenueCat
+
+Your subscription state and an anonymous app-generated identifier. No name, no
+email address, and nothing derived from your photos.
+
+**To delete:** email **goto.reiji@gmail.com** with the subject "Delete my data".
+We will request deletion from RevenueCat and confirm to you **within 30 days**.
+
+**If you do nothing:** this record is retained while the subscription is active,
+and for up to **24 months** after it ends, so that refunds and billing enquiries
+can be handled. It is deleted after that.
+
+### Stopping Latent from reading your library
+
+Revoke the photo permission in Android system settings. Latent will continue to
+run and will explain what it can no longer show you.
 
 ---
 
