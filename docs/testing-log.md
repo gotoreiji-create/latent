@@ -158,6 +158,26 @@ because guessing had already cost more than the build queue would.
 
 versionCode 8 shows ¥3,180 a year and ¥800 a month, both with seven days free.
 
+### 10. Purchases verified end to end — 2026-09-01
+
+The annual subscription was bought on a Pixel 7a from a Play-installed build,
+as a licence tester. Play selected the `annual:trial` offer — free for one week,
+then ¥3,180 a year — the purchase completed and was acknowledged
+(`GPA.3347-3890-3184-61977`), RevenueCat validated it, and cards 2 to 4 came out
+from under the veil with the `· PRO` marks gone.
+
+Getting there took three separate misconfigurations, each hiding the next:
+
+1. `.env` never reached EAS Build, so the API key was absent from every cloud
+   build and the SDK was never configured (report 9).
+2. The Google Play Android Developer API was not enabled on the Cloud project
+   that owns the service account. RevenueCat reported this precisely once the
+   key was present: *Backend Code 7973*.
+3. The service account was missing **View app information and download bulk
+   reports (read-only)**. Two of RevenueCat's three credential checks went green
+   the moment it was added; the third — validating purchases — took a further
+   few hours to propagate.
+
 ## Known gaps
 
 - The limited-access screen added in versionCode 3 has not been reproduced on a
